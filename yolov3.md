@@ -30,8 +30,7 @@
     1. x,y: 数值随便,要监督的时候做sigmoid: sigx,sigy,(0~1)
     2. w,h: 数值随便,在转为wh的时候会 1.exp 2.乘以anchors 所以梯度很大,取0的时候都是1倍了,应该是差不多就是在0的附近
     3. c0,c1,...,c20: 数值随便,最后会经过一个softmax层压下来
-
-### 监督信息targets是啥含义
+### targets(Dless) vs box(pixel)
 #### targets+image_shape->box
 bx = w x ubx
 by = h x uby
@@ -60,8 +59,7 @@ tensor([[ 0.00000,  8.00000,  0.54148,  0.20321,  0.24600,  0.27800],
         [ 3.00000, 16.00000,  0.67931,  0.48934,  0.64138,  0.44939],
         [ 3.00000, 19.00000,  0.45762,  0.94702,  0.19400,  0.10597]])
 ```
-
-### 总共生成了三层feature map,每层feature map的基本信息
+### 三层的preds，三层feature map
 #### 第一层,fmr最大,fmgs最少
 1. feature map: fm输出的所有数字
    1. (b,fna,fh,fw,pred_bdim): 4 x 3 x 16 x 16 x 25
@@ -80,7 +78,7 @@ tensor([[ 0.00000,  8.00000,  0.54148,  0.20321,  0.24600,  0.27800],
 3. fm_anchors: [[10, 13], [16, 30], [33, 23]]
 ### 后两层feature map的获取
 #### 上采样pixel2: v2的向量原来都是相互独立的，通过768x256得到的最后的256: v3,v3相当于v1和v2 fusion的结果
-### 单一层的监督方式: 三层完全一样，举一层的例子即可
+### encoder and decoder
 #### encoder: targets+fm_anchors编码出loss
 1. input
    1. targets: (nt,td)
