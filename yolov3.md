@@ -27,9 +27,15 @@
        2. fsux,fsuy: feature_map_shift_unit_pu,feature_map_shift_unit_pv (0~1)
        3. gtw,gth: gt_weight,gt_height 量纲是pixel
 18. pred_box_dim: 25个参数,x,y,w,h,c0,c1,c2,c3...,c20
-    1. x,y: 数值随便,要监督的时候做sigmoid: sigx,sigy,(0~1)
-    2. w,h: 数值随便,在转为wh的时候会 1.exp 2.乘以anchors 所以梯度很大,取0的时候都是1倍了,应该是差不多就是在0的附近
-    3. c0,c1,...,c20: 数值随便,最后会经过一个softmax层压下来
+    1. x,y: 
+       1. 数值随便,要监督的时候做sigmoid: sigx,sigy,(0~1)
+       2. $$x_1,y_1 \xrightarrow{\sigma(x)} x_2,y_2 \xrightarrow{(+grid)\times fmr}u,v(pixel)$$
+    2. w,h: 
+       1. 数值随便,在转为wh的时候会 1.exp 2.乘以anchors 所以梯度很大,取0的时候都是1倍了,应该是差不多就是在0的附近
+       2. $$w_1,h1 \xrightarrow{e^x} w_2,h_2 \xrightarrow{\times an\_wh}$$ w_3,h_3(pixel)
+    3. c0,c1,...,c20
+       1. 数值随便,最后会经过一个softmax层压下来 
+       2. $$c_0,c_1,...,c_{20} \xrightarrow{softmax} s_0,s_1,...,s_{20}$$
 ### targets(Dless) vs box(pixel)
 #### targets+image_shape->box
 bx = w x ubx
@@ -79,7 +85,7 @@ tensor([[ 0.00000,  8.00000,  0.54148,  0.20321,  0.24600,  0.27800],
 ### 后两层feature map的获取
 #### 上采样pixel2: v2的向量原来都是相互独立的，通过768x256得到的最后的256: v3,v3相当于v1和v2 fusion的结果
 ### encoder and decoder
-#### encoder: targets+fm_anchors编码出loss
+#### encoder: targets+fm_anchors -> loss
 1. input
    1. targets: (nt,td)
    2. fm_anchors: (fna,wh_dim)
@@ -110,7 +116,6 @@ tensor([[ 0.00000,  8.00000,  0.54148,  0.20321,  0.24600,  0.27800],
                      1. loss_giou = [fsux,fsuy,gtw,gth] vs [pxy,pwh]
                      2. loss_lable = [c0,c1,...,c20] vs lable
                      3. loss_obj = softmax(c0) vs (0 or 1)
-
 #### decoder: preds解码出bboxs
 1. input: preds
    1. (1,fna,fh,fw,pred_bdim)
@@ -118,10 +123,25 @@ tensor([[ 0.00000,  8.00000,  0.54148,  0.20321,  0.24600,  0.27800],
       2. pred2 = torch.Size([1, 3, 32, 32, 25]): torch.Size([1, 3072, 25])
       3. pred3 = torch.Size([1, 3, 64, 64, 25]): torch.Size([1, 12288, 25])
 2. output: (n,box_dim): x,y,w,h,lable,prob
-3. process: 针对torch.Size([1, 3, 16, 16, 25])
-   <!-- 1. xy恢复尺度:
-      1. pred1[...,:2] = sigmoid(pred1[...,:2]) * 32
-   2. wh恢复尺度
-      1. pred1[...,2:4] = exp(pred1[...,2:4]) -->
+3. process: 针对pred,torch.Size([1, 3, 16, 16, 25])
+   1. x,y: pred[...,:2]
+      1. sigmoid
+      $$x_1,y_1 \xrightarrow{\sigma(x)} x_2,y_2$$
+      2. grid 
+         ``` python
+         xx,yy = torch.meshgrid(torch.arange(h),torch.arange(w))
+         grid = torch.stack((xx,yy),dim=-1)
+         grid = grid.view((1,1,h,w,2)).type(torch.float)
+         ```
+      3. pred->pixels
+      $$pred \xrightarrow{(\sigma(x)+grid)\times stride}pred（pixel） $$
+   1. w,h: pred[...,2:4]
+      1. exp
+      $$w_1,h_1 \xrightarrow{e^x} w_2,h_2$$
+      2. pred->pixels
+      ``` python
+      anchors = anchors.view(1,3,1,1,2)
+      ```
+      $$ pred \xrightarrow{\times anchors} pred(pixel)$$
 
 ![请添加图片描述](https://i-blog.csdnimg.cn/direct/3a64755eefaa4768950a74392e91cb04.png)
